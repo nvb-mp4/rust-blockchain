@@ -1,11 +1,9 @@
-#![allow(unused)]
 use data_encoding::HEXLOWER;
-use num_bigint::{BigInt, Sign};
+use num_bigint::BigInt;
 
-use crate::block::Block;
+use crate::{block::Block, sha256_digest};
 
-const TARGET_BITS: i32 = 8;
-
+pub const TARGET_BITS: i32 = 8;
 pub const MAX_NONCE: i64 = i64::MAX;
 
 pub struct ProofOfWork {
@@ -14,10 +12,10 @@ pub struct ProofOfWork {
 }
 
 impl ProofOfWork {
-    pub fn new_proof_of_work(block: Block) -> ProofOfWork {
+    pub fn new_proof_of_work(block: Block) -> Self {
         let mut target = BigInt::from(1);
-        target <<= 256 - TARGET_BITS;
-        ProofOfWork { block, target }
+        target <<= (256 - TARGET_BITS) as usize;
+        Self { block, target }
     }
 
     fn prepare_data(&self, nonce: i64) -> Vec<u8> {
@@ -31,28 +29,22 @@ impl ProofOfWork {
     }
 
     pub fn run(&self) -> (i64, String) {
-        let mut nonce = 0;
-        let mut hash = Vec::new();
-        println!("Mining the block");
-        while nonce < MAX_NONCE {
+        println!("Mining...");
+        for nonce in 0..MAX_NONCE {
             let data = self.prepare_data(nonce);
-            hash = crate::sha256_digest(data.as_slice());
-            let hash_int = BigInt::from_bytes_be(Sign::Plus, hash.as_slice());
+            let hash = sha256_digest(&data);
+            let hash_int = BigInt::from_bytes_be(num_bigint::Sign::Plus, &hash);
             if hash_int < self.target {
-                println!("{}", HEXLOWER.encode(hash.as_slice()));
-                break;
-            } else {
-                nonce += 1;
+                return (nonce, HEXLOWER.encode(&hash));
             }
         }
-        println!();
-        (nonce, HEXLOWER.encode(hash.as_slice()))
+        panic!("MAX_NONCE exhausted");
     }
 
     pub fn validate(&self) -> bool {
         let data = self.prepare_data(self.block.get_nonce());
-        let hash = crate::sha256_digest(data.as_slice());
-        let hash_int = BigInt::from_bytes_be(Sign::Plus, hash.as_slice());
+        let hash = sha256_digest(&data);
+        let hash_int = BigInt::from_bytes_be(num_bigint::Sign::Plus, &hash);
         hash_int < self.target
     }
 }

@@ -1,8 +1,11 @@
+use std::slice;
+
 use serde::{Deserialize, Serialize};
 use sled::IVec;
 
-use crate::proof_of_work::ProofOfWork;
-use crate::transaction::Transaction;
+use crate::{
+    current_timestamp, proof_of_work::ProofOfWork, sha256_digest, transaction::Transaction,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Block {
@@ -15,9 +18,9 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn new_block(pre_block_hash: String, transactions: &[Transaction], height: usize) -> Block {
-        let mut block = Block {
-            timestamp: crate::current_timestamp(),
+    pub fn new_block(pre_block_hash: String, transactions: &[Transaction], height: usize) -> Self {
+        let mut block = Self {
+            timestamp: current_timestamp(),
             pre_block_hash,
             hash: String::new(),
             transactions: transactions.to_vec(),
@@ -31,59 +34,47 @@ impl Block {
         block
     }
 
-    pub fn deserialize(bytes: &[u8]) -> Block {
-        bincode::deserialize(bytes).unwrap()
-    }
-
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap().to_vec()
+        postcard::to_stdvec(self).expect("failed to serialize block")
+    }
+    pub fn deserialize(bytes: &[u8]) -> Self {
+        postcard::from_bytes(bytes).expect("failed to deserialize block")
     }
 
     pub fn get_transactions(&self) -> &[Transaction] {
-        self.transactions.as_slice()
+        &self.transactions
     }
-
     pub fn get_pre_block_hash(&self) -> String {
         self.pre_block_hash.clone()
     }
-
     pub fn get_hash(&self) -> &str {
-        self.hash.as_str()
+        &self.hash
     }
-
-    pub fn get_hash_bytes(&self) -> Vec<u8> {
-        self.hash.as_bytes().to_vec()
-    }
-
     pub fn get_timestamp(&self) -> i64 {
         self.timestamp
     }
-
     pub fn get_height(&self) -> usize {
         self.height
     }
-
     pub fn get_nonce(&self) -> i64 {
         self.nonce
     }
 
     pub fn hash_transactions(&self) -> Vec<u8> {
-        let mut txhashs = vec![];
-        for transaction in &self.transactions {
-            txhashs.extend(transaction.get_id());
+        let mut buf = Vec::with_capacity(self.transactions.len() * 32);
+        for tx in &self.transactions {
+            buf.extend_from_slice(tx.id.as_bytes());
         }
-        crate::sha256_digest(txhashs.as_slice())
+        sha256_digest(&buf)
     }
 
-    pub fn generate_genesis_block(transaction: &Transaction) -> Block {
-        let transactions = vec![transaction.clone()];
-        Block::new_block(String::from("None"), &transactions, 0)
+    pub fn generate_genesis_block(transaction: &Transaction) -> Self {
+        Block::new_block(String::from("None"), slice::from_ref(transaction), 0)
     }
 }
 
 impl From<Block> for IVec {
-    fn from(b: Block) -> Self {
-        let bytes = bincode::serialize(&b).unwrap();
-        Self::from(bytes)
+    fn from(value: Block) -> Self {
+        Self::from(postcard::to_stdvec(&value).expect("failed to serialize block"))
     }
 }
