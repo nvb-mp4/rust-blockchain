@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use data_encoding::HEXLOWER;
 use num_bigint::BigInt;
 

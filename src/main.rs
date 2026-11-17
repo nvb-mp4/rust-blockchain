@@ -1,6 +1,7 @@
 use sha2::{Digest, Sha256};
 
 mod block;
+mod blockchain;
 mod proof_of_work;
 mod transaction;
 mod utxo;
