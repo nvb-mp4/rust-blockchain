@@ -17,4 +17,5 @@ pub fn sha256_digest(data: &[u8]) -> Vec<u8> {
     hasher.update(data);
     hasher.finalize().as_slice().to_vec()
 }
+
 fn main() {}
